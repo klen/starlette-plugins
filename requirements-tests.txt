@@ -1,0 +1,7 @@
+starlette
+requests
+
+pytest
+pytest-asyncio
+
+-e .
