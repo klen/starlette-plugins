@@ -14,10 +14,6 @@ def app():
     async def home(request):
         return PlainTextResponse('/')
 
-    @app.route('/exc')
-    async def exc(request):
-        raise Exception('test')
-
     return app
 
 
@@ -71,8 +67,3 @@ def test_plugins(app, client):
         ('middleware', 'test', 'http'),
         ('lifespan', 'shutdown'),
     ]
-
-    with client:
-        res = client.get('/exc')
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        assert res.status_code == 200
