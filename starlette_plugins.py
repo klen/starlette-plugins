@@ -15,13 +15,13 @@ class PluginMiddleware:
 
     __slots__ = 'app',
 
-    plugin = None
+    middleware = None
 
-    def __init__(self, app, **kwargs):
+    def __init__(self, app):
         self.app = app
 
     def __call__(self, scope, receive, send) -> None:
-        return self.plugin.middleware(self.app, scope, receive, send)
+        return self.middleware(self.app, scope, receive, send)
 
 
 class PluginMeta(type):
@@ -68,9 +68,7 @@ class StarlettePlugin(metaclass=PluginMeta):
 
         # Setup middlewares
         if self.middleware:
-            Middleware = type(
-                '%sMiddleware' % self.name.title(), (PluginMiddleware,), {'plugin': self})
-            self.app.add_middleware(Middleware, plugin=self)
+            self.add_middleware(self.middleware)
 
         # Setup events
         if self.on_startup:
@@ -81,6 +79,12 @@ class StarlettePlugin(metaclass=PluginMeta):
 
         if self.on_shutdown:
             self.app.add_event_handler('shutdown', self.on_shutdown)
+
+    def add_middleware(self, middleware):
+        Middleware = type(
+            '%sMiddleware' % self.name.title(), (PluginMiddleware,), {
+                'middleware': self.middleware})
+        return self.app.add_middleware(Middleware)
 
     # TODO
     def on_exception(self, exception_class_or_status_code):

@@ -35,7 +35,7 @@ def test_plugins(app, client):
         config = {'option2': True}
 
         async def middleware(self, app, scope, receive, send):
-            check('middleware', scope['type'])
+            check('middleware', self.name, scope['type'])
             return await app(scope, receive, send)
 
         async def on_startup(self):
@@ -60,5 +60,5 @@ def test_plugins(app, client):
 
     check.assert_any_call('lifespan', 'startup')
     check.assert_any_call('lifespan', 'shutdown')
-    check.assert_any_call('middleware', 'lifespan')
-    check.assert_any_call('middleware', 'http')
+    check.assert_any_call('middleware', 'test', 'lifespan')
+    check.assert_any_call('middleware', 'test', 'http')
