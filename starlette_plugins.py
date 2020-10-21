@@ -77,9 +77,6 @@ class StarlettePlugin(metaclass=PluginMeta):
         if self.on_shutdown:
             self.app.add_event_handler('shutdown', self.on_shutdown)
 
-        if self.on_shutdown:
-            self.app.add_event_handler('shutdown', self.on_shutdown)
-
     def add_middleware(self, middleware):
         Middleware = type(
             '%sMiddleware' % self.name.title(), (PluginMiddleware,), {

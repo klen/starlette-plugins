@@ -58,7 +58,9 @@ def test_plugins(app, client):
         res = client.get('/')
         assert res.status_code == 200
 
-    check.assert_any_call('lifespan', 'startup')
-    check.assert_any_call('lifespan', 'shutdown')
-    check.assert_any_call('middleware', 'test', 'lifespan')
-    check.assert_any_call('middleware', 'test', 'http')
+    assert [list(l) for l in check.call_args_list] == [
+        [('middleware', 'test', 'lifespan'), {}],
+        [('lifespan', 'startup'), {}],
+        [('middleware', 'test', 'http'), {}],
+        [('lifespan', 'shutdown'), {}],
+    ]
