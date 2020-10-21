@@ -78,7 +78,7 @@ Let's imagine that we need to write Starlette plugins for Peewee ORM.
             await self.database.close_async()
 
     async def shutdown(self, scope):
-        """ The methods are supported: `on_startup`, `on_shutdown`."""
+        """ The methods are supported: `startup`, `shutdown`."""
         if hasattr(self.database, 'close_all'):
             self.database.close_all()
 
@@ -89,7 +89,10 @@ Use the plugin
 
    from starlette.applications import Starlette
 
+
    db = Peewee(url='postgres+async://database')
+
+   app = Starlette()
    db.setup(app)
 
 
