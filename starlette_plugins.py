@@ -1,6 +1,7 @@
 __version__ = "0.0.4"
 __license__ = "MIT"
 
+
 import threading
 
 
@@ -15,13 +16,13 @@ class PluginMiddleware:
 
     __slots__ = 'app',
 
-    middleware = None
+    plugin = None
 
     def __init__(self, app):
         self.app = app
 
     def __call__(self, scope, receive, send) -> None:
-        return self.middleware(self.app, scope, receive, send)
+        return self.plugin.process(scope, receive, send, app=self.app)
 
 
 class PluginMeta(type):
@@ -31,9 +32,6 @@ class PluginMeta(type):
         cls = super().__new__(mcs, name, bases, params)
         if bases and not cls.name:
             raise PluginException('Plugin `%s` doesn\'t have a name.' % cls)
-
-        if cls.middleware:
-            cls.__call__ = cls.middleware
 
         return cls
 
@@ -53,7 +51,7 @@ class StarlettePlugin(metaclass=PluginMeta):
         if self.app:
             self.setup(app)
 
-    def setup(self, app, **settings):
+    def __call__(self, app, **settings):
         self.app = app
 
         # Setup plugins registry
@@ -66,23 +64,53 @@ class StarlettePlugin(metaclass=PluginMeta):
         self.config.update(settings)
         self.config = type('%sConfig' % self.name.title(), (object,), self.config)
 
-        # Setup middlewares
-        if self.middleware:
-            self.add_middleware(self.middleware)
+        return type('%sMiddleware' % self.name.title(), (PluginMiddleware,), {'plugin': self})
 
-        # Setup events
-        if self.on_startup:
-            self.app.add_event_handler('startup', self.on_startup)
+    def setup(self, app, **settings):
+        """Setup middlewares."""
+        Middleware = self(app, **settings)
 
-        if self.on_shutdown:
-            self.app.add_event_handler('shutdown', self.on_shutdown)
+        self.app.add_middleware(Middleware)
 
-    def add_middleware(self, middleware):
-        Middleware = type(
-            '%sMiddleware' % self.name.title(), (PluginMiddleware,), {
-                'middleware': self.middleware})
-        return self.app.add_middleware(Middleware)
+    def process(self, scope, receive, send, app=None):
+        """Process ASGI call."""
+        app = app or self.app
+        try:
+            if scope['type'] == 'lifespan':
+                return self.lifespan(scope, receive, send, app)
 
-    # TODO
-    def on_exception(self, exception_class_or_status_code):
+            return self.middleware(scope, receive, send, app)
+
+        except Exception as exc:
+            return self.exception(exc, scope, receive, send, app)
+
+    def lifespan(self, scope, receive, send, app):
+        """Process lifespan cycle."""
+
+        async def reply_receive():
+            message = await receive()
+            if message['type'] == 'lifespan.startup':
+                await self.startup(scope)
+
+            elif message['type'] == 'lifespan.shutdown':
+                await self.shutdown(scope)
+
+            return message
+
+        return app(scope, reply_receive, send)
+
+    async def middleware(self, scope, receive, send, app):
+        """Default middleware."""
+        return await app(scope, send, receive)
+
+    async def startup(self, scope):
+        """Default startup method."""
         pass
+
+    async def shutdown(self, scope):
+        """Default shutdown method."""
+        pass
+
+    def exception(self, exc, scope, receive, send, app):
+        """Default exception."""
+        raise exc

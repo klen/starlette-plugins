@@ -14,6 +14,10 @@ def app():
     async def home(request):
         return PlainTextResponse('/')
 
+    @app.route('/exc')
+    async def exc(request):
+        raise Exception('test')
+
     return app
 
 
@@ -34,14 +38,14 @@ def test_plugins(app, client):
         name = 'test'
         config = {'option2': True}
 
-        async def middleware(self, app, scope, receive, send):
+        async def middleware(self, scope, receive, send, app=None):
             check('middleware', self.name, scope['type'])
             return await app(scope, receive, send)
 
-        async def on_startup(self):
+        async def startup(self, scope):
             check('lifespan', 'startup')
 
-        async def on_shutdown(self):
+        async def shutdown(self, scope):
             check('lifespan', 'shutdown')
 
     test = TestPlugin()
@@ -58,9 +62,17 @@ def test_plugins(app, client):
         res = client.get('/')
         assert res.status_code == 200
 
-    assert [list(l) for l in check.call_args_list] == [
-        [('middleware', 'test', 'lifespan'), {}],
-        [('lifespan', 'startup'), {}],
-        [('middleware', 'test', 'http'), {}],
-        [('lifespan', 'shutdown'), {}],
+        res = client.get('/')
+        assert res.status_code == 200
+
+    assert [args[0] for args in check.call_args_list] == [
+        ('lifespan', 'startup'),
+        ('middleware', 'test', 'http'),
+        ('middleware', 'test', 'http'),
+        ('lifespan', 'shutdown'),
     ]
+
+    with client:
+        res = client.get('/exc')
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        assert res.status_code == 200

@@ -69,12 +69,15 @@ Let's imagine that we need to write Starlette plugins for Peewee ORM.
         super(Peewee, self).setup(app, **settings)
         self.database = db_url.connect(self.config.url, **self.config.connection_params)
 
-    async def middleware(self, app, scope, receive, send):
+    async def middleware(self, scope, receive, send, app):
         """An optional ASGI middleware."""
-        async with self.database:
+        try:
+            await self.database.connect_async()
             await app(scope, receive, send)
+        finally:
+            await self.database.close_async()
 
-    async def on_shutdown(self):
+    async def shutdown(self, scope):
         """ The methods are supported: `on_startup`, `on_shutdown`."""
         if hasattr(self.database, 'close_all'):
             self.database.close_all()
